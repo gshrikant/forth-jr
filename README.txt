@@ -1,2 +1,2 @@
-Back - My Forth Implementation
-===============================
+Forth Jr - A naive Forth implementation
+========================================
