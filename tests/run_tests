@@ -1,0 +1,4 @@
+#!/bin/bash
+# Test runner for Forth Jr.
+
+echo "Running tests ...";
