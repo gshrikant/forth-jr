@@ -12,6 +12,7 @@
 #include <inttypes.h>
 
 #define MAX_WORD_SIZE 32UL
+#define MAX_LINE_SIZE 256UL
 #define MAX_STACK_SIZE 1024UL
 
 #define DEBUG_MODE 0
@@ -64,8 +65,14 @@ struct dict pdict[] = {
 	{ "drop", drop_word, 0 },
 	{ "swap", swap_word, 0 },
 	{ ".s", show_stack, 0 },
-	{ 0, 0 },
+	{ 0, 0, 0 },
 };
+
+size_t
+min(size_t x, size_t y)
+{
+	return x < y ? x : y;
+}
 
 /* Stack utilities */
 int
@@ -181,7 +188,7 @@ print_word(void *stack, int flags)
 
 	/* TODO: Handle all types */
 
-	printf("\n>> %d\n", pop(ps));
+	printf(">> %d\n", pop(ps));
 	return (NULL);
 }
 
@@ -229,53 +236,132 @@ is_keyword(char *word)
 	return (false);
 }
 
+int
+is_comment(char *word)
+{
+	const char *const COMMENT = "\\";
+	return !strncmp(word, COMMENT, sizeof(COMMENT));
+}
+
+/**
+ * @brief Read a new line from input buffer.
+ * @param infd Input file descriptor.
+ * @param linebuf Line buffer.
+ * @param len Length of line buffer.
+ * @return Number of bytes read (including NULL terminator).
+ */
 size_t
-next_word(FILE* infd, char *buf, size_t len)
+next_line(FILE *infd, char *linebuf, size_t len)
 {
 	int sym;
 	size_t i = 0;
 
-	while (((sym = getc(infd)) != EOF) && i < len) {
-		/* Word found. */
-		if (isspace(sym)) {
-			buf[i] = '\0';
+	if (!linebuf || !len)
+		return (0);
+
+	while ((sym = getc(infd)) != EOF) {
+		/* Until newline. */
+		if (sym == '\n') {
+			linebuf[i] = '\0';
 			return (i);
+		} else {
+			linebuf[i++] = (char) sym;
+		}
+	}
+
+	/* EOF */
+	return (0);
+}
+
+/**
+ * @brief Get next word from input stream.
+ * @param line Line to read word from.
+ * @param llen Length of line.
+ * @param word Word buffer.
+ * @param wlen Length of word buffer.
+ * @return No. of characters read (including terminating NULL character).
+ */
+size_t
+next_word(char *line, size_t llen, char *word, size_t wlen)
+{
+	/* Include terminating NULL in traversal. */
+	for (size_t i = 0; i < min(wlen+1, llen+1); ++i) {
+		if (isspace(line[i]) || line[i] == '\0') {
+			word[i] = '\0';		/* Word found. */
+			return (i+1);
 		}
 
-		buf[i++] = (char) sym;
+		word[i] = line[i];
 	}
+
+	return 0;
+}
+
+#define ENOTANUM (-1)
+#define ENUMTOOBIG (-2)
+
+int
+insert(char *word)
+{
+	char *eptr;
+	long int nword;
+
+	/* Value is number if not found in the dictionary. */
+	errno = 0;
+	nword = strtol(word, &eptr, 10);
+
+	/* Conversion failed. */
+	if (eptr == word)
+		return (ENOTANUM);
+
+	/* Overflow/undeflow. */
+	if (errno == ERANGE && (nword == LONG_MAX || nword == LONG_MIN))
+		return (ENUMTOOBIG);
+
+	push(&pstack, (int) nword);
 
 	return (0);
 }
 
 void
-eval(void)
+eval(FILE *infd)
 {
+	size_t llen;
+	char line[MAX_STACK_SIZE] = {0};
 	pstack.idx = -1;
-	char word[MAX_WORD_SIZE] = {0};
+	size_t lineno = 0;
+	size_t col, wlen;
 
-	while (next_word(stdin, word, sizeof(word))) {
-		/* Value is number if not found in the dictionary. */
-		if (!is_keyword(word)) {
-			char *eptr;
-			errno = 0;
-			long int nword = strtol(word, &eptr, 10);
-			if (eptr == word) {
-				err(1, "Error: not a number.\n");
-			} else if (errno == ERANGE) {
-				if (nword == LONG_MAX || nword == LONG_MIN )
-					err(1, "Error: Number too big.\n");
+	while ((llen = next_line(infd, line, sizeof(line)))) {
+		char *words = &line[0];
+		char word[MAX_WORD_SIZE] = {0};
+		col = wlen = 0;
+
+		while ((wlen = next_word(words, llen, word, sizeof(word)))) {
+			col += wlen;
+
+			if (!is_keyword(word)) {
+				/* Skip rest of the line. */
+				if (is_comment(word))
+					break;
+
+				/* TODO: Handle errors. */
+				insert(word);	/* Push a number. */
 			}
 
-			pstack.stack[++pstack.idx] = (int) nword;
+			words += wlen;
+			llen -= wlen;
 		}
+
+		++lineno;
 	}
 }
 
 int
 main(int argc, char *argv[])
 {
-	eval();
+	eval(stdin);
 	printf("Finished processing.\n");
-	return (0);
+
+	return (EXIT_SUCCESS);
 }
