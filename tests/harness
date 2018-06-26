@@ -1,0 +1,54 @@
+#!/bin/bash
+
+REF="gforth"
+REF_OPTS="-e bye"
+SUT="$1"
+SUT_OPTS="-f"
+
+COLOR_NORMAL='\e[0m'
+COLOR_RED='\e[31m'
+COLOR_GREEN='\e[32m'
+BOLD='\e[1m'
+
+TESTDIR=$(dirname `realpath $0`)
+
+describe() {
+    echo -n "`basename $1`: "
+    LINE=`sed -n '2p' $1`
+    echo -n "${LINE#\\ }"
+}
+
+reference() {
+    OUT_REF=$(mktemp)
+    $REF $1 $REF_OPTS > $OUT_REF
+}
+
+sut() {
+    OUT_MINE=$(mktemp)
+    "$SUT" "$SUT_OPTS" "$1" > "$OUT_MINE"
+}
+
+compare() {
+    diff -q $1 $2 > /dev/null;
+    if [ $? -eq 0 ]; then
+        echo -e " $BOLD$COLOR_GREEN PASSED $COLOR_NORMAL"
+    else
+        echo -e " $BOLD$COLOR_RED FAILED $COLOR_NORMAL"
+    fi;
+}
+
+run_tests() {
+    echo "Running tests ...";
+    for testcase in "$TESTDIR"/*.fs; do
+        describe "$testcase";
+        reference "$testcase";
+        sut "$testcase";
+        compare "$OUT_REF" "$OUT_MINE";
+    done
+}
+
+main() {
+    run_tests;
+}
+
+main;

@@ -4,6 +4,7 @@ CFLAGS = -g -O3 -std=c99 $(WFLAGS)
 WFLAGS = -Wall -Wextra -pedantic -Wundef -Wunreachable-code -Wcast-align \
 	 -Wstrict-prototypes -Wswitch-default -Wpointer-arith \
 	 -Wswitch-enum -Wconversion
+DFLAGS = -DDEBUG_MODE=0
 INCLUDE = -isystem include
 
 # Directories
@@ -20,13 +21,13 @@ all: $(PROG)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $<
+	$(CC) $(CFLAGS) $(DFLAGS) $(INCLUDE) -c -o $@ $<
 
 $(PROG): $(OBJECTS_ALL)
 	$(CC) $(OBJECTS_ALL) -o $@
 
 test: $(PROG)
-	$(TESTDIR)/run_tests
+	@$(TESTDIR)/harness ./$^
 
 clean:
 	@$(RM) *.o
