@@ -125,31 +125,31 @@ binop(void *stack, int flags)
 	
 	switch (flags) {
 	case ADD:
-		result = op1 + op2;
+		result = op2 + op1;
 		break;
 	case DIVIDE:
-		result = op1 / op2;
+		result = op2 / op1;
 		break;
 	case MULTIPLY:
-		result = op1 * op2;
+		result = op2 * op1;
 		break;
 	case SUBTRACT:
 		result = op2 - op1;
 		break;
 	case AND:
-		result = op1 & op2;
+		result = op2 & op1;
 		break;
 	case OR:
-		result = op1 | op2;
+		result = op2 | op1;
 		break;
 	case RSHIFT:
-		result = op1 >> op2;
+		result = op2 >> op1;
 		break;
 	case LSHIFT:
-		result = op1 << op2;
+		result = op2 << op1;
 		break;
 	case MOD:
-		result = op1 % op2;
+		result = op2 % op1;
 		break;
 	default:
 		/* Debug only. */
